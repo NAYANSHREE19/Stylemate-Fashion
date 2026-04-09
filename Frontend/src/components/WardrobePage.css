@@ -1,0 +1,127 @@
+/* Wardrobe Page - Dark Theme */
+.wardrobe-page {
+  min-height: calc(100vh - 64px);
+  padding: 2.5rem 1rem;
+  background: var(--color-bg);
+}
+
+.wardrobe-page h2 {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 0.5rem;
+}
+
+.wardrobe-page h2 + p,
+.wardrobe-page .wardrobe-subtitle {
+  color: var(--color-text-secondary);
+  margin-bottom: 2rem;
+}
+
+.wardrobe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.wardrobe-card {
+  background: var(--gradient-card);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all 0.3s var(--ease-smooth);
+}
+
+.wardrobe-card:hover {
+  border-color: var(--color-border-hover);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.wardrobe-card img {
+  width: 100%;
+  aspect-ratio: 3/4;
+  object-fit: cover;
+}
+
+.wardrobe-card-content {
+  padding: 1.25rem;
+}
+
+.wardrobe-card-content h3 {
+  font-size: 0.95rem;
+  color: var(--color-text);
+  margin-bottom: 0.3rem;
+  font-weight: 600;
+}
+
+.wardrobe-card-content p,
+.wardrobe-card-content .category,
+.wardrobe-card-content .color-tag {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.wardrobe-card .tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.wardrobe-card .tag {
+  padding: 0.15rem 0.5rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.wardrobe-card .delete-btn {
+  margin-top: 0.75rem;
+  padding: 0.45rem 0.85rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-sm);
+  color: #fca5a5;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.25s var(--ease-smooth);
+}
+
+.wardrobe-card .delete-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.wardrobe-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 4rem 1rem;
+  color: var(--color-text-secondary);
+}
+
+.wardrobe-empty h3 {
+  color: var(--color-text);
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.wardrobe-page .error-message {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.2);
+  color: #fca5a5;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .wardrobe-grid {
+    grid-template-columns: 1fr;
+  }
+}
