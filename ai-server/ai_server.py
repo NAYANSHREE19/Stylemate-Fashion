@@ -167,3 +167,144 @@ async def generate_image(payload: GenerateRequest):
         return {"error": "timeout"}
     except Exception as exc:
         return {"error": str(exc)}
+
+
+# ── Clothing Analysis (Background Removal + Auto-Tagging) ─────────────────────
+from fastapi import File, UploadFile
+from PIL import Image
+import numpy as np
+
+# Lazy-load rembg session to avoid slow startup
+_rembg_session = None
+
+def _get_rembg_session():
+    global _rembg_session
+    if _rembg_session is None:
+        from rembg import new_session
+        _rembg_session = new_session("u2net")
+        print("✅ rembg model loaded")
+    return _rembg_session
+
+
+def _extract_dominant_color(img: Image.Image) -> dict:
+    """Extract dominant color name and hex from a PIL image."""
+    # Resize for speed
+    small = img.convert("RGB").resize((100, 100))
+    pixels = np.array(small).reshape(-1, 3)
+
+    # Remove near-transparent / near-black / near-white pixels
+    mask = (pixels.sum(axis=1) > 30) & (pixels.sum(axis=1) < 700)
+    pixels = pixels[mask]
+
+    if len(pixels) == 0:
+        return {"name": "Unknown", "hex": "#888888"}
+
+    try:
+        from sklearn.cluster import KMeans
+        kmeans = KMeans(n_clusters=min(5, len(pixels)), random_state=42, n_init=10)
+        kmeans.fit(pixels)
+        # Pick the cluster with the most members
+        counts = np.bincount(kmeans.labels_)
+        dominant = kmeans.cluster_centers_[counts.argmax()].astype(int)
+    except Exception:
+        dominant = pixels.mean(axis=0).astype(int)
+
+    r, g, b = int(dominant[0]), int(dominant[1]), int(dominant[2])
+    hex_color = f"#{r:02x}{g:02x}{b:02x}"
+    color_name = _rgb_to_name(r, g, b)
+    return {"name": color_name, "hex": hex_color}
+
+
+def _rgb_to_name(r, g, b):
+    """Map an RGB value to a human-readable color name."""
+    colors = {
+        "Black":   (0, 0, 0),
+        "White":   (255, 255, 255),
+        "Red":     (220, 50, 50),
+        "Blue":    (50, 80, 220),
+        "Navy":    (0, 0, 128),
+        "Green":   (50, 180, 50),
+        "Yellow":  (240, 220, 50),
+        "Orange":  (240, 150, 30),
+        "Pink":    (240, 130, 170),
+        "Purple":  (150, 60, 200),
+        "Brown":   (139, 90, 43),
+        "Beige":   (220, 200, 170),
+        "Grey":    (140, 140, 140),
+        "Teal":    (0, 128, 128),
+        "Maroon":  (128, 0, 0),
+        "Olive":   (128, 128, 0),
+        "Coral":   (255, 127, 80),
+        "Lavender":(200, 180, 240),
+    }
+    min_dist = float("inf")
+    best = "Unknown"
+    for name, (cr, cg, cb) in colors.items():
+        dist = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2
+        if dist < min_dist:
+            min_dist = dist
+            best = name
+    return best
+
+
+def _guess_category_from_aspect(width, height):
+    """Heuristic: guess clothing category based on image aspect ratio."""
+    ratio = height / max(width, 1)
+    if ratio > 1.8:
+        return "Dresses"
+    elif ratio > 1.3:
+        return "Tops"
+    elif ratio < 0.7:
+        return "Accessories"
+    else:
+        return "Tops"
+
+
+def _remove_bg_sync(image_bytes: bytes) -> dict:
+    """Remove background and extract metadata — runs in thread pool."""
+    from rembg import remove
+    session = _get_rembg_session()
+
+    # Remove background
+    result_bytes = remove(image_bytes, session=session)
+    result_img = Image.open(io.BytesIO(result_bytes)).convert("RGBA")
+
+    # Extract color from the foreground only
+    color_info = _extract_dominant_color(result_img)
+
+    # Guess category
+    category = _guess_category_from_aspect(result_img.width, result_img.height)
+
+    # Encode result as base64 PNG
+    buffer = io.BytesIO()
+    result_img.save(buffer, format="PNG")
+    img_b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    return {
+        "image_base64": img_b64,
+        "color": color_info,
+        "category": category,
+        "width": result_img.width,
+        "height": result_img.height,
+    }
+
+
+@app.post("/analyze-clothing")
+async def analyze_clothing(file: UploadFile = File(...)):
+    """
+    Accepts a clothing image upload.
+    Returns: background-removed base64 PNG, detected color, guessed category.
+    """
+    image_bytes = await file.read()
+
+    loop = asyncio.get_event_loop()
+    future = loop.run_in_executor(_executor, _remove_bg_sync, image_bytes)
+
+    try:
+        result = await asyncio.wait_for(future, timeout=30.0)
+        return result
+    except asyncio.TimeoutError:
+        return {"error": "timeout"}
+    except Exception as exc:
+        return {"error": str(exc)}
+

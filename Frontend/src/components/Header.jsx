@@ -64,6 +64,9 @@ function Header() {
                 <Sparkles size={14} />
                 AI Outfits
               </Link>
+              <Link to="/outfit-analyzer" className={`header__link ${isActive("/outfit-analyzer") ? "header__link--active" : ""}`}>
+                Outfit Check
+              </Link>
               <Link to="/wardrobe" className={`header__link ${isActive("/wardrobe") ? "header__link--active" : ""}`}>
                 Wardrobe
               </Link>

@@ -79,3 +79,17 @@ export const incrementTimesWorn = async (id) => {
     throw error;
   }
 };
+
+// Analyze clothing image (AI background removal + auto-tag) and add to wardrobe
+export const analyzeClothing = async (base64Image, name) => {
+  try {
+    const response = await api.post('/wardrobe/analyze', {
+      image: base64Image,
+      name: name || '',
+    }, { timeout: 60000 }); // 60s timeout for AI processing
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+

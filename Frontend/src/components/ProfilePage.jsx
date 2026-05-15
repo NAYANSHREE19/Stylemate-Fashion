@@ -1,9 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Edit3, Mail, User, Calendar, Sparkles } from "lucide-react";
+import {
+  Edit3,
+  Mail,
+  User,
+  Calendar,
+  Sparkles,
+  ShirtIcon,
+  BookOpen,
+  Award,
+  TrendingUp,
+  Palette,
+} from "lucide-react";
 import { getCurrentUser } from "../services/authService";
 import { getLatestQuiz } from "../services/quizService";
+import { getWardrobeItems } from "../services/wardrobeService";
 import { updateUserProfile } from "../services/userService";
 import LoadingSpinner from "./LoadingSpinner";
 import { useAuth } from "../context/AuthContext";
@@ -16,6 +28,7 @@ const ProfilePage = () => {
   const [success, setSuccess] = useState("");
   const [userData, setUserData] = useState(null);
   const [latestQuiz, setLatestQuiz] = useState(null);
+  const [wardrobeCount, setWardrobeCount] = useState(0);
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [selectedGender, setSelectedGender] = useState("female");
   const [savingGender, setSavingGender] = useState(false);
@@ -27,10 +40,12 @@ const ProfilePage = () => {
       setError("");
 
       try {
-        const [userResponse, quizResponse] = await Promise.all([
-          getCurrentUser(),
-          getLatestQuiz().catch(() => null),
-        ]);
+        const [userResponse, quizResponse, wardrobeResponse] =
+          await Promise.all([
+            getCurrentUser(),
+            getLatestQuiz().catch(() => null),
+            getWardrobeItems().catch(() => null),
+          ]);
 
         if (userResponse?.success) {
           setUserData(userResponse.data);
@@ -39,6 +54,10 @@ const ProfilePage = () => {
 
         if (quizResponse?.success) {
           setLatestQuiz(quizResponse.data);
+        }
+
+        if (wardrobeResponse?.success) {
+          setWardrobeCount(wardrobeResponse.data?.length || 0);
         }
       } catch (err) {
         setError(err.message || "Failed to load profile information.");
@@ -64,7 +83,9 @@ const ProfilePage = () => {
         const updatedUser = response.data;
         setUserData(updatedUser);
         updateUser(updatedUser);
-        setSuccess("Gender updated successfully. Quiz and recommendations will now adapt.");
+        setSuccess(
+          "Gender updated successfully. Quiz and recommendations will now adapt."
+        );
         setShowGenderModal(false);
       }
     } catch (err) {
@@ -74,96 +95,207 @@ const ProfilePage = () => {
     }
   };
 
+  const getInitials = (name) => {
+    if (!name) return "?";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const stylePersonalities = latestQuiz?.answers?.stylePersonality || [];
+  const memberSince = userData?.createdAt
+    ? new Date(userData.createdAt).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })
+    : "—";
+
   return (
     <section className="profile-page">
       <div className="container profile-container">
-        {error && <div className="profile-error">{error}</div>}
-        {success && <div className="profile-success">{success}</div>}
+        {error && <div className="profile-alert profile-alert--error">{error}</div>}
+        {success && <div className="profile-alert profile-alert--success">{success}</div>}
 
-        <div className="profile-card style-dna-card">
-          <div className="profile-title-row">
-            <h1>My Profile</h1>
-            <button className="gender-edit-btn" onClick={() => setShowGenderModal(true)}>
-              <Edit3 size={14} />
-              Change Gender
-            </button>
+        {/* ═══════════════════════════════════════════════════════
+            PROFILE HERO CARD
+        ═══════════════════════════════════════════════════════ */}
+        <div className="profile-hero fade-in-up">
+          <div className="profile-hero__glow" />
+
+          <div className="profile-hero__avatar">
+            <div className="profile-avatar">
+              {getInitials(userData?.name)}
+            </div>
+            <div className="profile-hero__info">
+              <h1>{userData?.name || "StyleMate User"}</h1>
+              <p className="profile-hero__email">{userData?.email}</p>
+              <div className="profile-hero__badges">
+                <span
+                  className={`profile-gender-pill ${userData?.gender === "male" ? "male" : "female"}`}
+                >
+                  {userData?.gender === "male" ? "♂ Male" : "♀ Female"}
+                </span>
+                <span className="profile-member-pill">
+                  <Calendar size={12} />
+                  Member since {memberSince}
+                </span>
+              </div>
+            </div>
           </div>
-          <p className="style-dna-label">Style DNA</p>
-          <p className="style-dna-value">
-            {latestQuiz?.styleDNA || "Take the quiz to generate your Style DNA."}
-          </p>
-          <div className="gender-pill-wrap">
-            <span className={`gender-pill ${userData?.gender === "male" ? "male" : "female"}`}>
-              {userData?.gender === "male" ? "Male Profile" : "Female Profile"}
-            </span>
-          </div>
-          <button className="retake-quiz-btn" onClick={() => navigate("/quiz")}>
-            Retake Quiz
+
+          <button
+            className="profile-hero__edit"
+            onClick={() => setShowGenderModal(true)}
+          >
+            <Edit3 size={14} />
+            Edit Profile
           </button>
         </div>
 
-        <div className="profile-grid">
-          <div className="profile-card">
-            <h2>Account Details</h2>
-            <div className="profile-field">
-              <span className="field-icon"><User size={16} /></span>
-              <span className="label">Name</span>
-              <span className="value">{userData?.name || "-"}</span>
+        {/* ═══════════════════════════════════════════════════════
+            STATS CARDS
+        ═══════════════════════════════════════════════════════ */}
+        <div className="profile-stats fade-in-up" style={{ animationDelay: "0.1s" }}>
+          <div className="profile-stat-card">
+            <div className="profile-stat-card__icon">
+              <ShirtIcon size={22} />
             </div>
-            <div className="profile-field">
-              <span className="field-icon"><Mail size={16} /></span>
-              <span className="label">Email</span>
-              <span className="value">{userData?.email || "-"}</span>
-            </div>
-            <div className="profile-field">
-              <span className="field-icon"><Sparkles size={16} /></span>
-              <span className="label">Gender</span>
-              <span className="value">{userData?.gender || "-"}</span>
-            </div>
-            <div className="profile-field">
-              <span className="field-icon"><Calendar size={16} /></span>
-              <span className="label">Last Quiz Date</span>
-              <span className="value">
-                {latestQuiz?.completedAt
-                  ? new Date(latestQuiz.completedAt).toLocaleDateString()
-                  : "Not completed yet"}
-              </span>
+            <div>
+              <span className="profile-stat-card__value">{wardrobeCount}</span>
+              <span className="profile-stat-card__label">Wardrobe Items</span>
             </div>
           </div>
 
-          <div className="profile-card">
-            <h2>Preferences</h2>
-            <div className="profile-field no-icon">
-              <span className="label">Style Personality</span>
-              <span className="value">
-                {latestQuiz?.answers?.stylePersonality?.length
-                  ? latestQuiz.answers.stylePersonality.join(", ")
-                  : "-"}
+          <div className="profile-stat-card">
+            <div className="profile-stat-card__icon">
+              <BookOpen size={22} />
+            </div>
+            <div>
+              <span className="profile-stat-card__value">
+                {latestQuiz ? "1" : "0"}
               </span>
+              <span className="profile-stat-card__label">Quizzes Taken</span>
             </div>
-            <div className="profile-field no-icon">
-              <span className="label">Lifestyle</span>
-              <span className="value">{latestQuiz?.answers?.lifestyle || "-"}</span>
+          </div>
+
+          <div className="profile-stat-card">
+            <div className="profile-stat-card__icon">
+              <Palette size={22} />
             </div>
-            <div className="profile-field no-icon">
-              <span className="label">Budget</span>
-              <span className="value">{latestQuiz?.answers?.budget || "-"}</span>
+            <div>
+              <span className="profile-stat-card__value">
+                {stylePersonalities.length || "—"}
+              </span>
+              <span className="profile-stat-card__label">Style Types</span>
             </div>
-            <div className="profile-field no-icon">
-              <span className="label">Body Type</span>
-              <span className="value">{latestQuiz?.answers?.bodyType || "-"}</span>
+          </div>
+
+          <div className="profile-stat-card">
+            <div className="profile-stat-card__icon">
+              <Award size={22} />
+            </div>
+            <div>
+              <span className="profile-stat-card__value">
+                {latestQuiz?.answers?.budget || "—"}
+              </span>
+              <span className="profile-stat-card__label">Budget Range</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════
+            DETAILS GRID
+        ═══════════════════════════════════════════════════════ */}
+        <div className="profile-grid fade-in-up" style={{ animationDelay: "0.2s" }}>
+          {/* ─── Style DNA ──────────────────────────── */}
+          <div className="profile-card profile-card--dna">
+            <div className="profile-card__header">
+              <Sparkles size={18} className="profile-card__header-icon" />
+              <h2>Style DNA</h2>
+            </div>
+            <p className="profile-dna-text">
+              {latestQuiz?.styleDNA ||
+                "Take the style quiz to generate your unique Style DNA."}
+            </p>
+
+            {stylePersonalities.length > 0 && (
+              <div className="profile-dna-tags">
+                {stylePersonalities.map((sp) => (
+                  <span key={sp} className="profile-dna-tag">
+                    {sp}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <button
+              className="btn-primary profile-retake-btn"
+              onClick={() => navigate("/quiz")}
+            >
+              <TrendingUp size={16} />
+              {latestQuiz ? "Retake Quiz" : "Take Style Quiz"}
+            </button>
+          </div>
+
+          {/* ─── Preferences ────────────────────────── */}
+          <div className="profile-card">
+            <div className="profile-card__header">
+              <User size={18} className="profile-card__header-icon" />
+              <h2>Preferences</h2>
+            </div>
+
+            <div className="profile-field-list">
+              <div className="profile-field">
+                <span className="profile-field__label">Lifestyle</span>
+                <span className="profile-field__value">
+                  {latestQuiz?.answers?.lifestyle || "—"}
+                </span>
+              </div>
+              <div className="profile-field">
+                <span className="profile-field__label">Body Type</span>
+                <span className="profile-field__value">
+                  {latestQuiz?.answers?.bodyType || "—"}
+                </span>
+              </div>
+              <div className="profile-field">
+                <span className="profile-field__label">Budget</span>
+                <span className="profile-field__value">
+                  {latestQuiz?.answers?.budget || "—"}
+                </span>
+              </div>
+              <div className="profile-field">
+                <span className="profile-field__label">Last Quiz</span>
+                <span className="profile-field__value">
+                  {latestQuiz?.completedAt
+                    ? new Date(latestQuiz.completedAt).toLocaleDateString()
+                    : "Not completed"}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* ═══════════════════════════════════════════════════════
+          GENDER MODAL
+      ═══════════════════════════════════════════════════════ */}
       {showGenderModal &&
         createPortal(
-          <div className="gender-modal-overlay" onClick={() => setShowGenderModal(false)}>
-            <div className="gender-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="gender-modal-overlay"
+            onClick={() => setShowGenderModal(false)}
+          >
+            <div
+              className="gender-modal"
+              onClick={(e) => e.stopPropagation()}
+            >
               <h3>Update Gender Preferences</h3>
               <p>
-                This updates your quiz options, recommendation logic, and generated outfit images.
+                This updates your quiz options, recommendation logic, and
+                generated outfit images.
               </p>
 
               <div className="gender-choice-row">
@@ -171,21 +303,29 @@ const ProfilePage = () => {
                   className={`gender-choice ${selectedGender === "male" ? "active" : ""}`}
                   onClick={() => setSelectedGender("male")}
                 >
-                  Male
+                  ♂ Male
                 </button>
                 <button
                   className={`gender-choice ${selectedGender === "female" ? "active" : ""}`}
                   onClick={() => setSelectedGender("female")}
                 >
-                  Female
+                  ♀ Female
                 </button>
               </div>
 
               <div className="gender-modal-actions">
-                <button className="btn-cancel" onClick={() => setShowGenderModal(false)} disabled={savingGender}>
+                <button
+                  className="btn-cancel"
+                  onClick={() => setShowGenderModal(false)}
+                  disabled={savingGender}
+                >
                   Cancel
                 </button>
-                <button className="btn-save" onClick={handleGenderSave} disabled={savingGender}>
+                <button
+                  className="btn-save"
+                  onClick={handleGenderSave}
+                  disabled={savingGender}
+                >
                   {savingGender ? "Saving..." : "Save Changes"}
                 </button>
               </div>

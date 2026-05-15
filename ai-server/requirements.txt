@@ -1,20 +1,28 @@
 # ── Core server ───────────────────────────────────────────────────────────────
-fastapi==0.111.0
-uvicorn[standard]==0.29.0
-pydantic==2.7.1
+fastapi
+uvicorn
+pydantic
+python-multipart
 
 # ── Image generation ──────────────────────────────────────────────────────────
 # SDXL Turbo requires diffusers >= 0.24
-diffusers==0.27.2
-transformers==4.40.0
-accelerate==0.29.3
-safetensors==0.4.3
+diffusers
+transformers
+accelerate
+safetensors
+
+# ── Clothing analysis (background removal + auto-tagging) ─────────────────────
+rembg[cpu]
+Pillow
+scikit-learn
+numpy
 
 # ── PyTorch (CPU) — works out of the box ──────────────────────────────────────
 # For GPU (CUDA 12.1) replace the torch line with:
 #   pip install torch==2.2.2 torchvision --index-url https://download.pytorch.org/whl/cu121
-torch==2.2.2
-torchvision==0.17.2
+# torch
+# torchvision
 
 # ── Optional speed boost (CUDA only) ──────────────────────────────────────────
 # xformers==0.0.25   # uncomment after installing CUDA torch
+

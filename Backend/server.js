@@ -20,6 +20,7 @@ import wardrobeRoutes from './routes/wardrobeRoutes.js';
 import favoriteRoutes from './routes/favoriteRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
+import outfitAnalyzerRoutes from './routes/outfitAnalyzerRoutes.js';
 
 // Load environment variables
 const __filename = fileURLToPath(import.meta.url);
@@ -63,6 +64,7 @@ app.use('/api/wardrobe', wardrobeRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/outfit-analyzer', outfitAnalyzerRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

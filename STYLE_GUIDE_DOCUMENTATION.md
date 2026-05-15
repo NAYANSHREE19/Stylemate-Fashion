@@ -367,3 +367,22 @@ The enhanced Style Guide is now a comprehensive fashion discovery platform that 
 - Smooth, responsive experience
 
 **Ready to inspire your users with amazing fashion styles!** 🌟
+
+---
+
+## 🚀 Recent Platform Enhancements
+
+Beyond the Style Guide, the StyleMate platform has been significantly enhanced with new core features:
+
+### 1. Dynamic Homepage Experience
+- **Premium Landing Page (Guest View):** A stunning, marketing-focused landing page for unauthenticated users featuring an animated hero section, "How it Works" breakdown, feature grid, and dynamic stats counter.
+- **Personalized Dashboard (Logged-in View):** A tailored hub for authenticated users that provides a time-based greeting, daily style tips, quick action shortcuts, and a summary of their digital wardrobe.
+
+### 2. AI-Powered Digital Wardrobe
+- **Smart Image Processing:** Users can upload photos of their clothing. The system utilizes `rembg` on the Python AI server to automatically remove image backgrounds.
+- **Auto-Tagging & Color Extraction:** The AI server uses KMeans clustering to extract the dominant color (with hex code and color name) and uses aspect ratio heuristics to guess the clothing category (Tops, Bottoms, Dresses, etc.).
+- **Interactive Upload Modal:** A polished, drag-and-drop upload interface featuring image previews and real-time AI processing feedback.
+
+### 3. Architecture & Infrastructure
+- **Conditional Routing:** Smart routing in `App.jsx` seamlessly switches between the Landing Page and Dashboard based on user authentication state.
+- **Python AI Server Integration:** Expanded the FastAPI Python server to handle multipart image uploads and background removal processing, securely integrated with the Node.js backend.

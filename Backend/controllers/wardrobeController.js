@@ -1,5 +1,7 @@
 import WardrobeItem from '../models/WardrobeItem.js';
 
+const AI_SERVER_URL = process.env.AI_SERVER_URL || 'http://localhost:8000';
+
 const ALLOWED_WARDROBE_CATEGORIES = new Set([
   'Tops',
   'Bottoms',
@@ -322,3 +324,70 @@ export const getWardrobeStats = async (req, res) => {
     });
   }
 };
+
+// @desc    Analyze clothing image (AI background removal + auto-tag) and add to wardrobe
+// @route   POST /api/wardrobe/analyze
+// @access  Private
+export const analyzeAndAddItem = async (req, res) => {
+  try {
+    const { image, name } = req.body;  // image is base64 string
+
+    if (!image) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide an image (base64)'
+      });
+    }
+
+    // Convert base64 to buffer and send to AI server as multipart
+    const imageBuffer = Buffer.from(image, 'base64');
+    const blob = new Blob([imageBuffer], { type: 'image/png' });
+
+    const formData = new FormData();
+    formData.append('file', blob, 'clothing.png');
+
+    const aiResponse = await fetch(`${AI_SERVER_URL}/analyze-clothing`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const aiResult = await aiResponse.json();
+
+    if (aiResult.error) {
+      return res.status(500).json({
+        success: false,
+        message: `AI analysis failed: ${aiResult.error}`
+      });
+    }
+
+    // Save to wardrobe with AI-detected info
+    const itemData = {
+      user: req.user.id,
+      name: name || `${aiResult.color?.name || ''} ${aiResult.category || 'Item'}`.trim(),
+      category: normalizeWardrobeCategory(aiResult.category),
+      color: aiResult.color?.name || 'Unknown',
+      image: `data:image/png;base64,${aiResult.image_base64}`,
+      imageUrl: `data:image/png;base64,${aiResult.image_base64}`,
+      source: 'AI',
+      tags: [aiResult.color?.name, aiResult.category].filter(Boolean),
+    };
+
+    const item = await WardrobeItem.create(itemData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Item analyzed and added to wardrobe',
+      data: item,
+      aiAnalysis: {
+        color: aiResult.color,
+        category: aiResult.category,
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
