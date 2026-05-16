@@ -1,4 +1,5 @@
 import express from 'express';
+import fs from 'fs';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -78,15 +79,27 @@ app.get('/api/health', (req, res) => {
 
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
-  // Use path.resolve with process.cwd() for better reliability in cloud environments
-  const frontendPath = path.resolve(process.cwd(), 'Frontend', 'dist');
-  console.log(`Serving static files from: ${frontendPath}`);
+  // Resilient path resolution for monorepo deployment
+  let frontendPath = path.resolve(process.cwd(), 'Frontend', 'dist');
   
-  app.use(express.static(frontendPath));
-
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'));
-  });
+  // If not found in current directory (e.g. if started from Backend folder), look in parent
+  if (!fs.existsSync(frontendPath)) {
+    frontendPath = path.resolve(process.cwd(), '..', 'Frontend', 'dist');
+  }
+  
+  console.log(`🚀 Serving static files from: ${frontendPath}`);
+  
+  if (fs.existsSync(frontendPath)) {
+    app.use(express.static(frontendPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(frontendPath, 'index.html'));
+    });
+  } else {
+    console.error(`❌ ERROR: Frontend build not found at ${frontendPath}`);
+    app.get('*', (req, res) => {
+      res.status(404).send('Frontend build not found. Please check deployment logs.');
+    });
+  }
 } else {
   app.get('/', (req, res) => {
     res.send('StyleMate API is running...');
