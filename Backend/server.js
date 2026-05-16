@@ -78,11 +78,14 @@ app.get('/api/health', (req, res) => {
 
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
-  const frontendPath = path.join(__dirname, '../Frontend/dist');
+  // Use path.resolve with process.cwd() for better reliability in cloud environments
+  const frontendPath = path.resolve(process.cwd(), 'Frontend', 'dist');
+  console.log(`Serving static files from: ${frontendPath}`);
+  
   app.use(express.static(frontendPath));
 
   app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../Frontend', 'dist', 'index.html'));
+    res.sendFile(path.join(frontendPath, 'index.html'));
   });
 } else {
   app.get('/', (req, res) => {
