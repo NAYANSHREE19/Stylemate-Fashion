@@ -21,6 +21,7 @@ const ProfilePage = lazy(() => import("./components/ProfilePage"));
 const WardrobePage = lazy(() => import("./components/WardrobePage"));
 const OutfitAnalyzerPage = lazy(() => import("./components/OutfitAnalyzerPage"));
 const ErrorPage = lazy(() => import("./components/ErrorPage"));
+import ChatWidget from "./components/ChatWidget";
 
 /* ── Smart Home: LandingPage for guests, Dashboard for logged-in users ── */
 const SmartHome = () => {
@@ -100,6 +101,7 @@ function App() {
                 />
               </Routes>
             </Suspense>
+            <ChatWidget />
             <Footer />
           </div>
         </Router>

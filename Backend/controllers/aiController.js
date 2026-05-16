@@ -1,19 +1,36 @@
-import { fetchPexelsImages } from '../utils/pexelsService.js';
+import axios from 'axios';
 import { getFallbackOutfits } from '../data/fallbackOutfits.js';
 import { generateOutfitConcepts } from '../utils/geminiTextService.js';
 import { generateWardrobeOutfitConcepts } from '../services/geminiOutfitService.js';
 import {
-  buildGenderedPexelsQuery,
   buildGenderedPrompt,
   normalizeStrictGender
 } from '../services/genderPromptService.js';
-import { buildStrictStyleQuery } from '../services/styleQueryService.js';
 
 const REQUIRED_FIELDS = ['style', 'occasion'];
 
+/**
+ * Helper to call Hugging Face Inference API
+ */
+const queryHuggingFace = async (prompt) => {
+  const hfToken = process.env.HF_API_TOKEN;
+  if (!hfToken) throw new Error('HF_API_TOKEN not configured');
+
+  const response = await axios.post(
+    "https://api-inference.huggingface.co/models/stabilityai/sdxl-turbo",
+    { inputs: prompt },
+    {
+      headers: { Authorization: `Bearer ${hfToken}` },
+      responseType: 'arraybuffer',
+      timeout: 30000
+    }
+  );
+  return Buffer.from(response.data, 'binary').toString('base64');
+};
+
 export const generateAIOutfits = async (req, res) => {
   try {
-    const targetCount = Math.max(6, Number(process.env.AI_RESPONSE_COUNT || 6));
+    const targetCount = Math.max(4, Number(process.env.AI_RESPONSE_COUNT || 4));
 
     const normalized = {
       style: (req.body.style || req.body.stylePersonality || '').trim(),
@@ -48,69 +65,41 @@ export const generateAIOutfits = async (req, res) => {
         geminiConcepts = await generateOutfitConcepts(normalized, normalized.gender, targetCount);
       }
     } catch (geminiError) {
-      console.warn('Gemini concept generation failed (falling back to direct queries):', geminiError.message);
+      console.warn('Gemini concept generation failed:', geminiError.message);
     }
 
     let outfits = [];
 
-    // ── 2. Build Final Image Pipeline ────────────────────
+    // ── 2. SDXL Turbo Image Generation ────────────────────
     if (geminiConcepts && geminiConcepts.length > 0) {
+      console.log(`Generating ${geminiConcepts.length} images with SDXL Turbo...`);
+      
+      // Run generation sequentially to avoid overwhelming the python server
       for (const concept of geminiConcepts) {
-        // Query must enforce gender heavily so stock photos don't mess up
-        const strictStyleQuery = buildStrictStyleQuery({
-          style: normalized.style,
-          occasion: normalized.occasion,
-          baseQuery: concept.pexels_query
-        });
-        const strictPexelsQuery = buildGenderedPexelsQuery(normalized.gender, strictStyleQuery);
+        const basePrompt = buildGenderedPrompt(normalized.gender, concept.image_prompt);
+        const finalPrompt = basePrompt + ", photorealistic fashion editorial, 8k, detailed, high fashion, sharp focus, beautiful lighting";
+        
         try {
-          const pexelsResults = await fetchPexelsImages(strictPexelsQuery);
-          if (pexelsResults.length > 0) {
-            // we just need the FIRST best image for this specific concept
-            const bestResult = pexelsResults[0];
+          const imageBase64 = await queryHuggingFace(finalPrompt);
+          
+          if (imageBase64) {
             outfits.push({
-              image: bestResult.image,
+              image: `data:image/png;base64,${imageBase64}`,
               description: concept.styling,
               tags: [normalized.style.toLowerCase(), normalized.gender],
-              prompt: buildGenderedPrompt(normalized.gender, concept.image_prompt),
-              source: 'gemini+pexels'
+              prompt: finalPrompt,
+              source: 'huggingface-sdxl'
             });
           }
         } catch (e) {
-          console.warn('Failed to fetch Pexels for concept:', concept.outfit);
+          console.warn('Failed to generate image from Hugging Face:', e.message);
         }
       }
     }
 
-    // ── 3. Fallback Pipeline (if Gemini failed/timed out) ──
-    if (outfits.length < targetCount) {
-      const remaining = targetCount - outfits.length;
-      console.log(`Falling back to generic Pexels for ${remaining} images`);
-      const strictFallbackStyleQuery = buildStrictStyleQuery({
-        style: normalized.style || 'fashion',
-        occasion: normalized.occasion || 'casual',
-        baseQuery: 'outfit editorial'
-      });
-      const fallbackQuery = buildGenderedPexelsQuery(normalized.gender, strictFallbackStyleQuery);
-      try {
-        const pexelsResults = await fetchPexelsImages(fallbackQuery);
-        const extra = pexelsResults
-          .filter(r => !outfits.some(o => o.image === r.image))
-          .map(result => ({
-            image: result.image,
-            description: result.description,
-            tags: [...result.tags, normalized.style.toLowerCase(), normalized.gender],
-            prompt: fallbackQuery,
-            source: 'pexels-fallback'
-          }));
-        outfits.push(...extra.slice(0, remaining));
-      } catch (fallbackError) {
-        console.warn('Pexels generic fallback failed:', fallbackError.message);
-      }
-    }
-
-    // ── 3rd attempt: last-resort dataset ─────────────────
+    // ── 3. Fallback Pipeline (if AI Server failed) ──
     if (outfits.length === 0) {
+      console.log("Falling back to dataset...");
       const fallbackItems = getFallbackOutfits(normalized, targetCount);
       outfits = fallbackItems.map((fallback, index) => ({
         image: fallback.image,
@@ -130,6 +119,45 @@ export const generateAIOutfits = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch outfits'
+    });
+  }
+};
+
+export const remixOutfit = async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ success: false, message: 'Prompt is required for remixing' });
+    }
+
+    console.log(`Remixing outfit with prompt: ${prompt}`);
+    
+    // Add slightly different style keywords to guarantee variation
+    const variationPrompt = prompt + ", variation, alternative style, slightly different angle";
+
+    try {
+      const imageBase64 = await queryHuggingFace(variationPrompt);
+      
+      if (imageBase64) {
+        return res.status(200).json({
+          success: true,
+          image: `data:image/png;base64,${imageBase64}`
+        });
+      } else {
+        throw new Error('Failed to generate variation');
+      }
+    } catch (error) {
+      console.error('remixOutfit error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to remix outfit'
+      });
+    }
+  } catch (outerError) {
+    console.error('Outer remixOutfit error:', outerError);
+    return res.status(500).json({
+      success: false,
+      message: outerError.message || 'Server error during remix'
     });
   }
 };

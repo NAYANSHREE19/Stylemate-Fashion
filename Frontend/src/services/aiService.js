@@ -6,3 +6,10 @@ export const generateAIOutfits = async (payload) => {
   });
   return response.data;
 };
+
+export const remixOutfit = async (prompt) => {
+  const response = await api.post('/ai/remix-outfit', { prompt }, {
+    timeout: 60000
+  });
+  return response.data;
+};

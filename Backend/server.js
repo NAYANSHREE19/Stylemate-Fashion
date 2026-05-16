@@ -21,6 +21,7 @@ import favoriteRoutes from './routes/favoriteRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
 import outfitAnalyzerRoutes from './routes/outfitAnalyzerRoutes.js';
+import chatbotRoutes from './routes/chatbotRoutes.js';
 
 // Load environment variables
 const __filename = fileURLToPath(import.meta.url);
@@ -65,34 +66,29 @@ app.use('/api/favorites', favoriteRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/outfit-analyzer', outfitAnalyzerRoutes);
+app.use('/api/chatbot', chatbotRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'StyleMate API is running!',
-    timestamp: new Date().toISOString()
+  res.json({
+    message: 'Welcome to StyleMate API',
+    version: '1.0.0'
   });
 });
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    message: 'Welcome to StyleMate API',
-    version: '1.0.0',
-    endpoints: {
-      auth: '/api/auth',
-      users: '/api/users',
-      quiz: '/api/quiz',
-      recommendations: '/api/recommendations',
-      styleGuide: '/api/style-guide',
-      wardrobe: '/api/wardrobe',
-      favorites: '/api/favorites',
-      contact: '/api/contact',
-      ai: '/api/ai'
-    }
+// Serve frontend in production
+if (process.env.NODE_ENV === 'production') {
+  const frontendPath = path.join(__dirname, '../Frontend/dist');
+  app.use(express.static(frontendPath));
+
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, '../Frontend', 'dist', 'index.html'));
   });
-});
+} else {
+  app.get('/', (req, res) => {
+    res.send('StyleMate API is running...');
+  });
+}
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

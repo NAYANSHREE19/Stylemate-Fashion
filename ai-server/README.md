@@ -17,9 +17,16 @@ This creates a `.venv312` virtual environment and installs all dependencies.
 ---
 
 ### Step 2 — Start the server
-Double-click **`start_server.bat`** or run:
+Double-click **`start_server.bat`** in File Explorer, or run this from your terminal:
+
+If you are using Windows Command Prompt (CMD) or PowerShell:
+```bash
+.\start_server.bat
 ```
-start_server.bat
+
+If you are using Git Bash on Windows:
+```bash
+cmd.exe /c start_server.bat
 ```
 The server starts at **http://localhost:8000**
 
@@ -51,7 +58,7 @@ You should see `"ok": true`.
 
 ### `GET /health`
 ```json
-{
+{start_server.bat
   "ok": true,
   "device": "cuda",
   "model": "stabilityai/sdxl-turbo",

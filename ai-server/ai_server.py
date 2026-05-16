@@ -18,10 +18,15 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 
+# pyrefly: ignore [missing-import]
 import torch
+# pyrefly: ignore [missing-import]
 from diffusers import AutoPipelineForText2Image
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile
 from pydantic import BaseModel, Field
+# pyrefly: ignore [missing-import]
+from PIL import Image
+import numpy as np
 
 warnings.filterwarnings("ignore")
 
@@ -49,14 +54,14 @@ _executor  = ThreadPoolExecutor(max_workers=1)  # one generation at a time
 async def lifespan(app: FastAPI):
     global _pipeline, _device
 
-    print("🔥 Loading SDXL Turbo model at startup…")
+    print("[*] Loading SDXL Turbo model at startup...")
     cuda_ok = torch.cuda.is_available()
     _device  = "cuda" if cuda_ok else "cpu"
     dtype    = torch.float16 if cuda_ok else torch.float32
 
-    print(f"   ▶ Device : {_device.upper()}")
-    print(f"   ▶ Model  : {MODEL_ID}")
-    print(f"   ▶ Steps  : {STEPS}  |  Size: {WIDTH}×{HEIGHT}")
+    print(f"   [*] Device : {_device.upper()}")
+    print(f"   [*] Model  : {MODEL_ID}")
+    print(f"   [*] Steps  : {STEPS}  |  Size: {WIDTH}x{HEIGHT}")
 
     _pipeline = AutoPipelineForText2Image.from_pretrained(
         MODEL_ID,
@@ -73,15 +78,15 @@ async def lifespan(app: FastAPI):
     if cuda_ok and hasattr(_pipeline, "enable_xformers_memory_efficient_attention"):
         try:
             _pipeline.enable_xformers_memory_efficient_attention()
-            print("   ✅ xformers enabled")
+            print("   [+] xformers enabled")
         except Exception:
             pass
 
-    print("✅ Model ready!")
+    print("[+] Model ready!")
     yield
 
     # Cleanup on shutdown
-    print("🛑 Shutting down — releasing model from memory…")
+    print("[-] Shutting down - releasing model from memory...")
     del _pipeline
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -170,9 +175,6 @@ async def generate_image(payload: GenerateRequest):
 
 
 # ── Clothing Analysis (Background Removal + Auto-Tagging) ─────────────────────
-from fastapi import File, UploadFile
-from PIL import Image
-import numpy as np
 
 # Lazy-load rembg session to avoid slow startup
 _rembg_session = None
@@ -180,9 +182,10 @@ _rembg_session = None
 def _get_rembg_session():
     global _rembg_session
     if _rembg_session is None:
+        # pyrefly: ignore [missing-import]
         from rembg import new_session
         _rembg_session = new_session("u2net")
-        print("✅ rembg model loaded")
+        print("[+] rembg model loaded")
     return _rembg_session
 
 
@@ -262,6 +265,7 @@ def _guess_category_from_aspect(width, height):
 
 def _remove_bg_sync(image_bytes: bytes) -> dict:
     """Remove background and extract metadata — runs in thread pool."""
+    # pyrefly: ignore [missing-import]
     from rembg import remove
     session = _get_rembg_session()
 

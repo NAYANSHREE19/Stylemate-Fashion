@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext';
 import { getLatestQuiz } from '../services/quizService';
 import { getCurrentUser } from '../services/authService';
-import { generateAIOutfits } from '../services/aiService';
+import { generateAIOutfits, remixOutfit } from '../services/aiService';
 import { addWardrobeItem } from '../services/wardrobeService';
 import { submitRecommendationFeedback } from '../services/recommendationService';
 import { getClientFallbackOutfits } from '../data/fallbackOutfitsData';
@@ -161,6 +161,7 @@ const RecommendationsPage = () => {
   const [feedbackByOutfit, setFeedbackByOutfit] = useState({});
   const [savingByOutfit, setSavingByOutfit] = useState({});
   const [savedByOutfit, setSavedByOutfit] = useState({});
+  const [remixingByOutfit, setRemixingByOutfit] = useState({});
   const [ready, setReady] = useState(false);
   const [cacheKey, setCacheKey] = useState('');
   const [autoLoadedFromCache, setAutoLoadedFromCache] = useState(false);
@@ -261,6 +262,7 @@ const RecommendationsPage = () => {
         setFeedbackByOutfit({});
         setSavingByOutfit({});
         setSavedByOutfit({});
+        setRemixingByOutfit({});
 
         if (persist && cacheKey && !isAlternativeProvider) {
           try {
@@ -424,6 +426,23 @@ const RecommendationsPage = () => {
       showToast(err.message || 'Failed to save');
     } finally {
       setSavingByOutfit((prev) => ({ ...prev, [outfit.id]: false }));
+    }
+  };
+
+  const handleRemix = async (outfit) => {
+    setRemixingByOutfit((prev) => ({ ...prev, [outfit.id]: true }));
+    try {
+      const response = await remixOutfit(outfit.prompt);
+      if (response.success && response.image) {
+        setAiOutfits((prev) =>
+          prev.map((o) => (o.id === outfit.id ? { ...o, image: response.image } : o))
+        );
+        showToast('Outfit remixed successfully! ✨');
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to remix outfit');
+    } finally {
+      setRemixingByOutfit((prev) => ({ ...prev, [outfit.id]: false }));
     }
   };
 
@@ -608,6 +627,15 @@ const RecommendationsPage = () => {
                             ? 'Saved'
                             : 'Save'}
                       </span>
+                    </button>
+                    <button
+                      className="ai-action-btn ai-action-btn--remix"
+                      onClick={() => handleRemix(outfit)}
+                      disabled={Boolean(remixingByOutfit[outfit.id])}
+                      title="Generate a variation"
+                    >
+                      <RefreshCw size={16} className={remixingByOutfit[outfit.id] ? "spin-icon" : ""} />
+                      <span>{remixingByOutfit[outfit.id] ? 'Remixing...' : 'Remix'}</span>
                     </button>
                   </div>
                 </div>
