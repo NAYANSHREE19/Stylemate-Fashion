@@ -32,6 +32,9 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 // Initialize Express app
 const app = express();
 
+// Trust proxy (Required for Render/Railway/Heroku)
+app.set('trust proxy', 1);
+
 const cspDirectives = helmet.contentSecurityPolicy.getDefaultDirectives();
 cspDirectives['img-src'] = ["'self'", 'data:', 'https:'];
 
